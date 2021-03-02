@@ -1,4 +1,6 @@
 ;;;================================================================
+(require 'transient)
+
 (defclass ffmpeg-option (transient-option) ()
   "Class used for command-line argument that can take a value.")
 
@@ -48,7 +50,7 @@
 (transient-define-argument ffmpeg-dispatch:-i ()
   :description "Input file"
   :class 'ffmpeg-option
-  :shortarg "-i"
+  :key "-i"
   :argument "-i"
   :prompt "Input file: "
   :reader 'ffmpeg-read-file-name
@@ -60,7 +62,7 @@
 (transient-define-argument ffmpeg-dispatch:-f ()
   :description "Input source format"
   :class 'ffmpeg-option
-  :shortarg "-f"
+  :key "-f"
   :argument "-f"
   :prompt "Input stream"
   :reader 'ffmpeg-read-video-format
@@ -72,7 +74,7 @@
 (transient-define-argument ffmpeg-dispatch:-s ()
   :description "Size WxH pixels"
   :class 'ffmpeg-option
-  :shortarg "-s"
+  :key "-s"
   :argument "-video_size"
   :prompt "Size WxH: "
   )
@@ -80,7 +82,7 @@
 (transient-define-argument ffmpeg-dispatch:-vf ()
   :description "Filtergraph"
   :class 'ffmpeg-option
-  :shortarg "-vf"
+  :key "-vf"
   :argument "-filter:v"
   :prompt "Video filter: "
   )
@@ -91,7 +93,7 @@
 (transient-define-argument ffmpeg-dispatch:-af ()
   :description "Audio source"
   :class 'ffmpeg-option
-  :shortarg "-af"
+  :key "-af"
   :argument "-f"
   :prompt "Input stream"
   :reader 'ffmpeg-read-audio-format
@@ -103,7 +105,7 @@
 (transient-define-argument ffmpeg-dispatch:-r ()
   :description "Output frame rate"
   :class 'ffmpeg-option
-  :shortarg "-r"
+  :key "-r"
   :argument "-framerate"
   :reader 'transient-read-number-N+
   )
@@ -111,7 +113,7 @@
 (transient-define-argument ffmpeg-dispatch:-c:v ()
   :description "Encoder"
   :class 'ffmpeg-option
-  :shortarg "-c:v"
+  :key "-c:v"
   :argument "-codec:v"
   :reader 'ffmpeg-read-video-codec
   )
@@ -129,7 +131,7 @@
 (transient-define-argument ffmpeg-dispatch:-c:a ()
   :description "Encoder"
   :class 'ffmpeg-option
-  :shortarg "-c:a"
+  :key "-c:a"
   :argument "-codec:a"
   :reader 'ffmpeg-read-audio-codec
   )
@@ -146,7 +148,7 @@
 (transient-define-argument ffmpeg-dispatch:-pix_fmt ()
   :description "Pixel format"
   :class 'ffmpeg-option
-  :shortarg "-pf"
+  :key "-pf"
   :argument "-pix_fmt"
   :reader 'ffmpeg-read-pixfmt
   )
@@ -160,7 +162,7 @@
   ;; :if (ffmpeg-crf-needed-p)
   :description "Constant Rate Factor"
   :class 'ffmpeg-option
-  :shortarg "-crf"
+  :key "-crf"
   :argument "-crf"
   :reader 'transient-read-number-N+
   )
@@ -210,23 +212,54 @@
     ]
    ["Presets"
     ("L" "load preset" ffmpeg-preset-load)
+    ("S" "Save preset" ffmpeg-preset-save)
     ]
    ]
   )
 
 (transient-define-suffix ffmpeg-preset-load ()
   "Load a preset argument list"
-  :transient t
+  :transient 'transient--do-stay
   (interactive)
-  (prin1 (mapcar (lambda (obj) (oref obj command))
-                 transient-current-suffixes)))
+  (let* ((obj transient--prefix))
+    (oset obj value ffmpeg-dispatch-saved)
+    (mapc #'transient-init-value transient--suffixes)))
+
+(defvar ffmpeg-dispatch-saved)
+
+(transient-define-suffix ffmpeg-preset-save ()
+  "Save an argument list as a preset"
+  :transient 'transient--do-stay
+  (interactive)
+  (setq transient-current-prefix   transient--prefix
+        transient-current-suffixes transient--suffixes)
+  (setq ffmpeg-dispatch-saved (transient-get-value))
+  
+  ;; (prin1 (mapcar (lambda (obj) (list (oref obj command)
+  ;;                               (oref obj key)
+  ;;                               (if (slot-exists-p obj 'value)
+  ;;                                   (oref obj value))))
+  ;;                transient--suffixes))
+
+  ;; (oset transient--prefix value '("-video_size 1920x1080"))
+  ;; (mapc #'transient-init-value transient--suffixes)
+  )
+
 
 (defun ffmpeg-echo-arguments (&optional args)
   (interactive
    (list (transient-args 'ffmpeg-dispatch)))
   (message (concat "ffmpeg " (string-join args " ")))
   (prin1 (transient-args transient-current-command)))
+(global-set-key (kbd "C-c t") 'ffmpeg-dispatch)
 
-(global-set-key (kbd "<f7>") 'ffmpeg-dispatch)
 ;; (ffmpeg-dispatch)
 
+;; (transient-define-suffix magit-log-an-argument-preset ()
+;;   :transient 'transient--do-stay
+;;   (interactive)
+;;   (oset transient--prefix value '("--patch" "--stat"))
+;;   (mapc #'transient-init-value transient--suffixes))
+
+;; (transient-append-suffix 'magit-log "h"
+;;   '("X" "use some argument preset" magit-log-an-argument-preset))
