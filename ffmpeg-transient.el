@@ -221,19 +221,40 @@
   "Load a preset argument list"
   :transient 'transient--do-stay
   (interactive)
-  (let* ((obj transient--prefix))
-    (oset obj value ffmpeg-dispatch-saved)
-    (mapc #'transient-init-value transient--suffixes)))
+  (let* ((preset-name (completing-read "Load preset: "
+                                       (mapcar 'car ffmpeg-dispatch-presets)))
+         (saved-values (alist-get preset-name ffmpeg-dispatch-presets nil nil #'string=)))
+    (with-demoted-errors "Error: %S"
+      (let* ((obj transient--prefix))
+        (oset obj value saved-values)
+        (mapc #'transient-init-value transient--suffixes)))))
 
-(defvar ffmpeg-dispatch-saved)
+(defvar ffmpeg-dispatch-presets nil
+  "Alist of presets for ffmpeg-dispatch")
 
 (transient-define-suffix ffmpeg-preset-save ()
   "Save an argument list as a preset"
   :transient 'transient--do-stay
   (interactive)
-  (setq transient-current-prefix   transient--prefix
-        transient-current-suffixes transient--suffixes)
-  (setq ffmpeg-dispatch-saved (transient-get-value))
+   (let ((preset-name (completing-read "Save to preset: "
+                                       (mapcar 'car ffmpeg-dispatch-presets)))
+         (transient-current-prefix transient--prefix)
+         (transient-current-suffixes transient--suffixes))
+    (setf (alist-get preset-name ffmpeg-dispatch-presets nil nil #'string=)
+          (transient-get-value))))
+
+(defun ffmpeg-echo-arguments (&optional args)
+  (interactive
+   (list (transient-args 'ffmpeg-dispatch)))
+  (message (concat "ffmpeg " (string-join args " ")))
+  (prin1 (transient-args transient-current-command)))
+
+(global-set-key (kbd "C-c t") 'ffmpeg-dispatch)
+
+  ;; (setq transient-current-prefix   transient--prefix
+  ;;       transient-current-suffixes transient--suffixes)
+  ;; (ffmpeg-dispatch-preset-save-func)
+  ;; (setq ffmpeg-dispatch-saved (transient-get-value))
   
   ;; (prin1 (mapcar (lambda (obj) (list (oref obj command)
   ;;                               (oref obj key)
@@ -243,15 +264,6 @@
 
   ;; (oset transient--prefix value '("-video_size 1920x1080"))
   ;; (mapc #'transient-init-value transient--suffixes)
-  )
-
-
-(defun ffmpeg-echo-arguments (&optional args)
-  (interactive
-   (list (transient-args 'ffmpeg-dispatch)))
-  (message (concat "ffmpeg " (string-join args " ")))
-  (prin1 (transient-args transient-current-command)))
-(global-set-key (kbd "C-c t") 'ffmpeg-dispatch)
 
 ;; (ffmpeg-dispatch)
 
